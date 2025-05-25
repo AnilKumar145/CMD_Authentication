@@ -40,42 +40,48 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(User).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: UserCreate):
-    # Check if username or email already exists
-    existing_user = db.query(User).filter(
-        or_(User.username == user.username, User.email == user.email)
-    ).first()
-    
-    if existing_user:
-        if existing_user.username == user.username:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered"
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
-    
-    # Generate user_id
-    user_id = get_next_user_id(db)
-    
-    # Create new user
-    hashed_password = get_password_hash(user.password)
-    db_user = User(
-        user_id=user_id,
-        username=user.username,
-        email=user.email,
-        hashed_password=hashed_password,
-        full_name=user.full_name,
-        role=user.role,
-        status=UserStatus.PENDING if user.role == UserRole.PATIENT else UserStatus.ACTIVE
-    )
-    
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    try:
+        # Check if username or email already exists
+        existing_user = db.query(User).filter(
+            or_(User.username == user.username, User.email == user.email)
+        ).first()
+        
+        if existing_user:
+            if existing_user.username == user.username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already registered"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+        
+        # Generate user_id
+        user_id = get_next_user_id(db)
+        
+        # Create new user
+        hashed_password = get_password_hash(user.password)
+        db_user = User(
+            user_id=user_id,
+            username=user.username,
+            email=user.email,
+            hashed_password=hashed_password,
+            full_name=user.full_name,
+            role=user.role,
+            status=UserStatus.PENDING if user.role == UserRole.PATIENT else UserStatus.ACTIVE
+        )
+        
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        db.rollback()
+        # Log the error
+        print(f"Error creating user: {str(e)}")
+        raise
 
 def update_user(db: Session, user_id: int, user_update: UserUpdate):
     db_user = get_user_by_id(db, user_id)
@@ -130,6 +136,7 @@ def change_user_status(db: Session, user_id: int, status: UserStatus):
     db.commit()
     db.refresh(db_user)
     return db_user
+
 
 
 

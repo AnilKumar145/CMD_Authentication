@@ -37,3 +37,20 @@ def get_db():
     finally:
         db.close()
 
+# Add this function to test the database connection
+def test_db_connection():
+    try:
+        db = SessionLocal()
+        # Try to execute a simple query
+        db.execute("SELECT 1")
+        print("Database connection successful")
+        db.close()
+        return True
+    except Exception as e:
+        print(f"Database connection error: {str(e)}")
+        return False
+
+# Call this function when your app starts
+test_db_connection()
+
+

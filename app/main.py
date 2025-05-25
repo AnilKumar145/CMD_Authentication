@@ -108,22 +108,50 @@ async def register_user(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    # Only allow patient self-registration
-    if user.role != UserRole.PATIENT:
+    try:
+        # Check if username already exists
+        existing_user = get_user_by_username(db, user.username)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already registered"
+            )
+            
+        # Check if email already exists
+        existing_email = db.query(User).filter(User.email == user.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        
+        # Only allow patient self-registration
+        if user.role != UserRole.PATIENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only patient registration is allowed"
+            )
+        
+        db_user = create_user(db, user)
+        
+        # Automatically activate the user for testing
+        db_user.status = UserStatus.ACTIVE
+        db.commit()
+        db.refresh(db_user)
+        
+        # Convert SQLAlchemy model to Pydantic model
+        return UserResponse.model_validate(db_user.__dict__)
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        # Log the error
+        print(f"Registration error: {str(e)}")
+        # Return a more helpful error
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only patient registration is allowed"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User registration failed. Please try again."
         )
-    
-    db_user = create_user(db, user)
-    
-    # Automatically activate the user for testing
-    db_user.status = UserStatus.ACTIVE
-    db.commit()
-    db.refresh(db_user)
-    
-    # Convert SQLAlchemy model to Pydantic model
-    return UserResponse.model_validate(db_user.__dict__)
 
 @app.post("/admin/create-user", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_non_patient_user(
@@ -164,5 +192,6 @@ async def read_users(
     
     users = get_users(db, skip=skip, limit=limit)
     return [UserResponse.model_validate(user.__dict__) for user in users]
+
 
 
