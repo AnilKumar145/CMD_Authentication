@@ -31,7 +31,10 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://healthcare-frontend.onrender.com",
+        "http://localhost:3000"  # For local development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -161,4 +164,5 @@ async def read_users(
     
     users = get_users(db, skip=skip, limit=limit)
     return [UserResponse.model_validate(user.__dict__) for user in users]
+
 
