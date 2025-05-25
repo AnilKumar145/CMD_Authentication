@@ -1,0 +1,10 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/venv/Lib/site-packages"
+    ],
+    "python.linting.enabled": true,
+    "python.languageServer": "Pylance",
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.typeCheckingMode": "basic"
+}
