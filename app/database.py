@@ -1,24 +1,16 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
-'''
-from app.config import settings
 
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+# Get DATABASE_URL from environment with a fallback
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-'''
-# Database URL from environment variable with fallback
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://cmd_user:GIxYa0Fx753DAD47VNY9pH8Dpuq3Le7l@dpg-d0p91j8dl3ps73aipd3g-a/cmd")
-
-# Add SSL mode for Render
-if "sslmode" not in DATABASE_URL:
+# Add SSL mode for Render if not present
+if DATABASE_URL and "sslmode" not in DATABASE_URL:
     DATABASE_URL += "?sslmode=require"
 
-# Create engine with production settings
+# Create engine with connection pooling
 engine = create_engine(
     DATABASE_URL,
     pool_size=5,
@@ -34,23 +26,11 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        print(f"Database session error: {str(e)}")
+        db.rollback()
+        raise
     finally:
         db.close()
-
-# Add this function to test the database connection
-def test_db_connection():
-    try:
-        db = SessionLocal()
-        # Try to execute a simple query
-        db.execute("SELECT 1")
-        print("Database connection successful")
-        db.close()
-        return True
-    except Exception as e:
-        print(f"Database connection error: {str(e)}")
-        return False
-
-# Call this function when your app starts
-test_db_connection()
 
 

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List
@@ -27,6 +28,17 @@ app = FastAPI(
     description="Handles authentication and authorization for the healthcare system",
     version="1.0.0"
 )
+
+# Add global exception handler to prevent credential leakage
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    # Log the error for debugging (but don't expose in response)
+    print(f"Global exception: {str(exc)}")
+    # Return a safe error message without sensitive details
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Please try again later."}
+    )
 
 # CORS middleware
 app.add_middleware(
@@ -192,6 +204,8 @@ async def read_users(
     
     users = get_users(db, skip=skip, limit=limit)
     return [UserResponse.model_validate(user.__dict__) for user in users]
+
+
 
 
 

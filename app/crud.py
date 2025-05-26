@@ -41,45 +41,50 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 def create_user(db: Session, user: UserCreate):
     try:
-        # Check if username or email already exists
-        existing_user = db.query(User).filter(
-            or_(User.username == user.username, User.email == user.email)
-        ).first()
-        
-        if existing_user:
-            if existing_user.username == user.username:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Username already registered"
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email already registered"
-                )
+        # Check if username already exists
+        existing_username = get_user_by_username(db, user.username)
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already registered"
+            )
+            
+        # Check if email already exists
+        existing_email = db.query(User).filter(User.email == user.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
         
         # Generate user_id
         user_id = get_next_user_id(db)
         
-        # Create new user
+        # Generate hashed password
+        from app.utils import get_password_hash
         hashed_password = get_password_hash(user.password)
+        
+        # Create user object
         db_user = User(
             user_id=user_id,
             username=user.username,
             email=user.email,
-            hashed_password=hashed_password,
             full_name=user.full_name,
+            hashed_password=hashed_password,
             role=user.role,
-            status=UserStatus.PENDING if user.role == UserRole.PATIENT else UserStatus.ACTIVE
+            status=UserStatus.PENDING
         )
         
+        # Add to database
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
         return db_user
+    except HTTPException:
+        # Re-raise HTTP exceptions for validation errors
+        raise
     except Exception as e:
         db.rollback()
-        # Log the error
         print(f"Error creating user: {str(e)}")
         raise
 
@@ -136,6 +141,9 @@ def change_user_status(db: Session, user_id: int, status: UserStatus):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+
 
 
 
