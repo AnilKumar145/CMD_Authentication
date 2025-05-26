@@ -1,3 +1,5 @@
+import traceback
+
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,9 +34,12 @@ app = FastAPI(
 # Add global exception handler to prevent credential leakage
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    # Log the error for debugging (but don't expose in response)
+    # Get the full traceback
+    error_details = traceback.format_exc()
+    # Log the detailed error
     print(f"Global exception: {str(exc)}")
-    # Return a safe error message without sensitive details
+    print(f"Traceback: {error_details}")
+    # Return a safe error message
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error. Please try again later."}
@@ -171,18 +176,31 @@ async def create_non_patient_user(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    # For initial setup, allow creating any type of user
-    # In production, this should be protected with admin authentication
-    
-    db_user = create_user(db, user)
-    
-    # Automatically activate the user
-    db_user.status = UserStatus.ACTIVE
-    db.commit()
-    db.refresh(db_user)
-    
-    # Convert SQLAlchemy model to Pydantic model
-    return UserResponse.model_validate(db_user.__dict__)
+    try:
+        # For initial setup, allow creating any type of user
+        # In production, this should be protected with admin authentication
+        
+        # Create the user
+        db_user = create_user(db, user)
+        
+        # Automatically activate the user
+        db_user.status = UserStatus.ACTIVE
+        db.commit()
+        db.refresh(db_user)
+        
+        # Convert SQLAlchemy model to Pydantic model and return
+        return UserResponse.model_validate(db_user.__dict__)
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions with proper status codes
+        raise http_exc
+    except Exception as e:
+        # Log the detailed error
+        print(f"Admin user creation error: {str(e)}")
+        # Return a generic error message
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user. Please try again later."
+        )
 
 @app.get("/users/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
@@ -204,6 +222,8 @@ async def read_users(
     
     users = get_users(db, skip=skip, limit=limit)
     return [UserResponse.model_validate(user.__dict__) for user in users]
+
+
 
 
 
