@@ -1,36 +1,36 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
-from app.models import UserRole, UserStatus
+from enum import Enum
 
-class UserBase(BaseModel):
+# Enum definitions (if not already defined)
+class UserRole(str, Enum):
+    ADMIN = "ADMIN"
+    DOCTOR = "DOCTOR"
+    PATIENT = "PATIENT"
+    STAFF = "STAFF"
+
+class UserStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    PENDING = "PENDING"
+
+# User response schema with all necessary fields
+class UserResponse(BaseModel):
+    id: int
+    user_id: str
     username: str
     email: EmailStr
     full_name: str
-
-class UserCreate(UserBase):
-    password: str = Field(..., min_length=8)
-    role: UserRole = UserRole.PATIENT  # Default role is patient
-
-class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    password: Optional[str] = None
-    status: Optional[UserStatus] = None
-    disabled: Optional[bool] = None
-
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: str
-    full_name: str
     role: UserRole
     status: UserStatus
-    created_at: datetime
-    last_login: datetime | None = None
-
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    disabled: Optional[bool] = None
+    
     class Config:
-        from_attributes = True  # This replaces orm_mode in Pydantic v2
+        from_attributes = True  # For Pydantic v2
+        populate_by_name = True  # For Pydantic v2
 
 class Token(BaseModel):
     access_token: str
@@ -42,6 +42,10 @@ class TokenData(BaseModel):
     username: str | None = None
     role: str | None = None
 
-
-
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    full_name: str
+    role: UserRole = UserRole.PATIENT  # Default to PATIENT
 

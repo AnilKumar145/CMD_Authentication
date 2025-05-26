@@ -177,10 +177,10 @@ async def create_non_patient_user(
     db: Session = Depends(get_db)
 ):
     try:
-        # For initial setup, allow creating any type of user
-        # In production, this should be protected with admin authentication
+        # Log the incoming request data
+        print(f"Creating admin user: {user.dict()}")
         
-        # Create the user
+        # Create the user (validation happens in crud.py)
         db_user = create_user(db, user)
         
         # Automatically activate the user
@@ -188,10 +188,25 @@ async def create_non_patient_user(
         db.commit()
         db.refresh(db_user)
         
-        # Convert SQLAlchemy model to Pydantic model and return
-        return UserResponse.model_validate(db_user.__dict__)
+        # Log successful creation
+        print(f"User created successfully: {db_user.username}")
+        
+        # Convert SQLAlchemy model to Pydantic model
+        user_dict = {
+            "id": db_user.id,
+            "user_id": db_user.user_id,
+            "username": db_user.username,
+            "email": db_user.email,
+            "full_name": db_user.full_name,
+            "role": db_user.role,
+            "status": db_user.status,
+            "created_at": db_user.created_at,
+            "updated_at": db_user.updated_at,
+            "disabled": db_user.disabled
+        }
+        return UserResponse(**user_dict)
     except HTTPException as http_exc:
-        # Re-raise HTTP exceptions with proper status codes
+        # Re-raise HTTP exceptions
         raise http_exc
     except Exception as e:
         # Log the detailed error
@@ -222,6 +237,8 @@ async def read_users(
     
     users = get_users(db, skip=skip, limit=limit)
     return [UserResponse.model_validate(user.__dict__) for user in users]
+
+
 
 
 

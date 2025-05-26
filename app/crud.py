@@ -8,24 +8,26 @@ from app.models import User, UserRole, UserStatus
 from app.schemas import UserCreate, UserUpdate
 from app.utils import get_password_hash, verify_password
 
-def get_next_user_id(db: Session) -> str:
-    """Generate the next user_id in the format USR0001, USR0002, etc."""
-    # Get the highest user_id
-    highest_user = db.query(User).order_by(User.id.desc()).first()
-    
-    if not highest_user:
-        # No users yet, start with USR0001
-        return "USR0001"
-    
-    # Extract the number from the highest user_id
-    match = re.search(r'USR(\d+)', highest_user.user_id)
-    if match:
-        num = int(match.group(1))
-        # Increment and format with leading zeros
-        return f"USR{(num + 1):04d}"
-    else:
-        # Fallback if the format is unexpected
-        return f"USR0001"
+def get_next_user_id(db: Session):
+    try:
+        # Get the highest user_id
+        last_user = db.query(User).order_by(User.id.desc()).first()
+        
+        if last_user and last_user.user_id and last_user.user_id.startswith("USR"):
+            # Extract the number part and increment
+            last_id = int(last_user.user_id[3:])
+            next_id = last_id + 1
+        else:
+            # Start with 1 if no users exist
+            next_id = 1
+            
+        # Format as USR followed by 6 digits
+        return f"USR{next_id:06d}"
+    except Exception as e:
+        print(f"Error in get_next_user_id: {str(e)}")
+        # Fallback to a timestamp-based ID
+        import time
+        return f"USR{int(time.time())}"
 
 def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
@@ -50,15 +52,21 @@ def create_user(db: Session, user: UserCreate):
             )
             
         # Check if email already exists
-        existing_email = db.query(User).filter(User.email == user.email).first()
+        existing_email = get_user_by_email(db, user.email)
         if existing_email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
         
-        # Generate user_id
-        user_id = get_next_user_id(db)
+        # Generate user_id if the function exists
+        try:
+            user_id = get_next_user_id(db)
+        except Exception as e:
+            print(f"Error generating user_id: {str(e)}")
+            # Fallback to a simple UUID if get_next_user_id fails
+            import uuid
+            user_id = str(uuid.uuid4())
         
         # Generate hashed password
         from app.utils import get_password_hash
@@ -85,7 +93,8 @@ def create_user(db: Session, user: UserCreate):
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error creating user: {str(e)}")
+        print(f"Error creating user in crud.py: {str(e)}")
+        # Re-raise the exception to be handled by the endpoint
         raise
 
 def update_user(db: Session, user_id: int, user_update: UserUpdate):
@@ -141,6 +150,11 @@ def change_user_status(db: Session, user_id: int, status: UserStatus):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+
+
+
 
 
 
