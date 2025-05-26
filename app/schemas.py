@@ -1,8 +1,10 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
+# Import the UserRole and UserStatus from models if they're defined there
+from app.models import UserRole, UserStatus
 # Enum definitions (if not already defined)
 class UserRole(str, Enum):
     ADMIN = "ADMIN"
@@ -48,4 +50,20 @@ class UserCreate(BaseModel):
     password: str
     full_name: str
     role: UserRole = UserRole.PATIENT  # Default to PATIENT
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[UserRole] = None
+    status: Optional[UserStatus] = None
+    disabled: Optional[bool] = None
+    
+    class Config:
+        from_attributes = True
+
+
+
+
 
